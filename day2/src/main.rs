@@ -1,39 +1,39 @@
 use std::fs;
-use std::str::FromStr;
 use std::process;
+use std::str::FromStr;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Present {
     x: i32,
     y: i32,
-    z: i32
+    z: i32,
 }
 
 impl Present {
     pub fn new(x: i32, y: i32, z: i32) -> Self {
-        let mut sides = vec![x,y,z];
+        let mut sides = vec![x, y, z];
         sides.sort();
         Self {
             x: sides[0],
             y: sides[1],
-            z: sides[2]
+            z: sides[2],
         }
     }
 
     pub fn surface_area(&self) -> i32 {
-        2*(self.x*(self.y+self.z)+self.y*self.z)
+        2 * (self.x * (self.y + self.z) + self.y * self.z)
     }
 
     pub fn wrapping_area(&self) -> i32 {
-        self.surface_area() + self.x*self.y
+        self.surface_area() + self.x * self.y
     }
 
     pub fn volume(&self) -> i32 {
-        self.x*self.y*self.z
+        self.x * self.y * self.z
     }
 
     pub fn ribbon_length(&self) -> i32 {
-        2*(self.x+self.y)+ self.volume()
+        2 * (self.x + self.y) + self.volume()
     }
 }
 
@@ -41,17 +41,17 @@ impl FromStr for Present {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let elements= s
+        let elements = s
             .split("x")
             .map(|x| x.parse::<i32>())
-            .collect::<Result<Vec<_>,_>>();
+            .collect::<Result<Vec<_>, _>>();
 
         match elements {
-            Ok(x) => match x{
+            Ok(x) => match x {
                 x if x.len() == 3 => Ok(Self::new(x[0], x[1], x[2])),
-                x => Err(format!("incorrect elements in {}, found {}", s, x.len()))
-            }
-            Err(_) => Err(format!("Could not parse Dimensions from {}",s))
+                x => Err(format!("incorrect elements in {}, found {}", s, x.len())),
+            },
+            Err(_) => Err(format!("Could not parse Dimensions from {}", s)),
         }
     }
 }
@@ -60,21 +60,15 @@ fn load_presents(input: &str) -> Result<Vec<Present>, String> {
     input
         .split_terminator("\r\n")
         .map(|s| Present::from_str(s))
-        .collect::<Result<Vec<_>,_>>()
+        .collect::<Result<Vec<_>, _>>()
 }
 
-fn part_one(presents: &[Present]) -> i32{
-    presents
-        .iter()
-        .map(| x| x.wrapping_area())
-        .sum::<i32>()
+fn part_one(presents: &[Present]) -> i32 {
+    presents.iter().map(|x| x.wrapping_area()).sum::<i32>()
 }
 
-fn part_two(presents: &[Present]) -> i32{
-    presents
-        .iter()
-        .map(|x| x.ribbon_length())
-        .sum::<i32>()
+fn part_two(presents: &[Present]) -> i32 {
+    presents.iter().map(|x| x.ribbon_length()).sum::<i32>()
 }
 
 fn main() {
@@ -83,15 +77,14 @@ fn main() {
         process::exit(1);
     });
 
-    let presents = load_presents(&input).unwrap_or_else(|err|{
-        eprintln!("Error Loading Presents: {}",err);
+    let presents = load_presents(&input).unwrap_or_else(|err| {
+        eprintln!("Error Loading Presents: {}", err);
         process::exit(1);
     });
 
     println!("Part One Solution: {}", part_one(&presents));
     println!("Part One Solution: {}", part_two(&presents));
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -114,13 +107,11 @@ mod tests {
     }
 
     #[test]
-    fn test_ribbon_length(){
-        let present = Present::new(2,3,4);
+    fn test_ribbon_length() {
+        let present = Present::new(2, 3, 4);
         assert_eq!(present.ribbon_length(), 34);
 
-        let present = Present::new(1,1,10);
+        let present = Present::new(1, 1, 10);
         assert_eq!(present.ribbon_length(), 14);
-
     }
-
 }
