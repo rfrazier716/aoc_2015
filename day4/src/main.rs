@@ -38,10 +38,7 @@ fn main() {
     drop(tx);
 
     for received in rx {
-        match received {
-            Some(x) => println!("Part Two: {}", x),
-            None => (),
-        }
+        if let Some(x) = received { println!("Part Two: {}", x) }
     }
 }
 
