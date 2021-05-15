@@ -188,8 +188,8 @@ mod test {
     use super::*;
     #[test]
     fn test_grid_creation() {
-        let grid = StaticGrid::new(1000, 1000);
-        assert_eq!(grid.lights.len(), 1000000);
+        let grid = StaticGrid::new(3, 3);
+        assert_eq!(grid.lights.len(), 9);
         assert_eq!(grid[(0, 0)], Light::Off);
     }
     #[test]
