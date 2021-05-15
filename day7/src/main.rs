@@ -35,6 +35,7 @@ struct LogicGate{
     input_right: Option<GateIO>,
     output: GateIO,
     operation: Operation,
+    value: Option<u32>
 }
 
 impl LogicGate{
@@ -44,6 +45,7 @@ impl LogicGate{
             input_right,
             output,
             operation,
+            value: None
         }
     }
 }
@@ -92,15 +94,15 @@ impl FromStr for LogicGate{
 }
 
 struct CircuitBoard{
-    gate_lut: HashMap<String, LogicGate>,
-    node_values: HashMap<String, u32>
+    gates: Vec<LogicGate>,
+    gate_lut: HashMap<String, usize>,
 }
 
 impl CircuitBoard{
     pub fn new() -> Self{
         Self{
+            gates: vec![],
             gate_lut: HashMap::new(),
-            node_values: HashMap::new()
         }
     }
 
@@ -109,31 +111,30 @@ impl CircuitBoard{
             GateIO::Wire(x) => x,
             GateIO::Const(_) => return Err(String::from("Logic Gate has const output, cannot insert"))
         };
-        self.gate_lut.insert(key, gate);
+        self.gate_lut.insert(key, self.gates.len()); // add a new converter
+        self.gates.push(gate);
         Ok(())
     }
 
-    fn get_node_value(& gate_lut: HashMap<String, >)
-
     pub fn measure_node(&mut self, node: &str) -> Result<u32, String>{
+        let gate_idx = *self.gate_lut.get(node).ok_or_else(|| format!("Node {} does not exist in Circuit",node))?;
         
-        if let Some(x) = self.node_values.get(node){
-            Ok(*x)
+        if let Some(x) = self.gates[gate_idx].value{
+            Ok(x)
         } else{ // if it's none we have to process it
-            let gate = self.gate_lut.get(node).ok_or_else(|| format!("gate with label {} does not exist",node))?;
-            let l_input_value = match &gate.input_left{
-                Some(GateIO::Const(x)) => *x,
-                Some(GateIO::Wire(x)) => self.measure_node(x)?, // ooh look recursion rears its ugly head!
+            let l_input_value = match self.gates[gate_idx].input_left{
+                Some(GateIO::Const(x)) => x,
+                Some(GateIO::Wire(x)) => self.measure_node(&x)?, // ooh look recursion rears its ugly head!
                 None => return Err(format!("Gate {} has no left input!", node)), 
             };
 
-            let r_input_value = match &gate.input_right{
-                Some(GateIO::Const(x)) => Some(*x),
+            let r_input_value = match self.gates[gate_idx].input_right{
+                Some(GateIO::Const(x)) => Some(x),
                 Some(GateIO::Wire(x)) => Some(self.measure_node(&x)?),
                 None => None 
             };
             
-            let value = match &gate.operation{
+            let value = match self.gates[gate_idx].operation{
                 Operation::And => l_input_value & r_input_value.ok_or_else(|| String::from("Insufficient Inputs"))?,
                 Operation::LShift => l_input_value << 0x02,
                 Operation::RShift => l_input_value >> 0x02,
@@ -142,7 +143,7 @@ impl CircuitBoard{
                 Operation::Nop => l_input_value
             };
 
-            self.node_values.insert(node.to_string(), value);
+            self.gates[gate_idx].value = Some(value);
             Ok(value)
         }
     }
