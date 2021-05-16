@@ -38,7 +38,9 @@ fn main() {
     drop(tx);
 
     for received in rx {
-        if let Some(x) = received { println!("Part Two: {}", x) }
+        if let Some(x) = received {
+            println!("Part Two: {}", x)
+        }
     }
 }
 
