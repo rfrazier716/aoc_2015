@@ -2,13 +2,13 @@ use std::{collections::HashMap, error::Error, str::FromStr};
 use regex::Regex;
 use lazy_static::lazy_static;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum GateIO{
     Const(u32), // the input is a constant value
     Wire(usize) //the input references a different gate by name
 }
 
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 enum Operation{
     And,
     LShift,
@@ -17,21 +17,19 @@ enum Operation{
     Or,
     Nop,
 }
-#[derive(Clone)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 struct LogicGate{
     input_left: GateIO,
     input_right: Option<GateIO>,
-    output: GateIO,
     operation: Operation,
     value: Option<u32>
 }
 
 impl LogicGate{
-    pub fn new(input_left: GateIO, input_right: Option<GateIO>, output: GateIO, operation: Operation) -> Self{
+    pub fn new(input_left: GateIO, input_right: Option<GateIO>, operation: Operation) -> Self{
         Self{
             input_left,
             input_right,
-            output,
             operation,
             value: None
         }
@@ -102,6 +100,20 @@ impl CircuitBoard{
         }
     }
 
+    fn get_or_create_index(&mut self, id: &str) -> usize{
+        // returns the vector index of the logic cell with the corresponding label, if it does not exist a new cell is pushed onto the vector
+        match self.gate_lut.get(id){
+            Some(x) => *x,
+            None => {
+                //push a None object to the gates vec
+                let new_index = self.gates.len();
+                self.gate_lut.insert(id.to_string(), new_index);
+                self.gates.push(None);
+                new_index
+            }
+        }
+    }
+
     pub fn insert(&mut self, gate_descriptor: &str) -> Result<(), String>{
         lazy_static!{
             static ref GATE_REGEX:Regex = Regex::new(r"([a-z]{1,2}|[0-9]+)? ?([A-Z]+)? ?([a-z]{1,2}|[0-9]+)? -> ([a-z]{1,2})").unwrap();
@@ -117,7 +129,7 @@ impl CircuitBoard{
                     "NOT" => Operation::Not,
                     "LSHIFT" => Operation::LShift,
                     "RSHIFT" => Operation::RShift,
-                    x => return Err(format!("Could not Parse Operation from {}, got {}",s, x)),
+                    x => return Err(format!("Could not Parse Operation from {}, got {}",gate_descriptor, x)),
                 }
             } else{
                 Operation::Nop
@@ -127,67 +139,39 @@ impl CircuitBoard{
             let left_input: GateIO;
             if let Some(x) = captures.get(1){
                 let input_str = x.as_str();
-                match input_str.parse::<u32>(){
-                    Ok(val) => left_input = GateIO::Const(val),
-                    Err(_) => {
-                        // if it's a wire we need to see if it exists in the hash and assign that key
-                        match self.gate_lut.get(input_str){
-                            Some(x) => left_input = GateIO::Wire(*x),
-                            None => {
-                                // if a field for the gate doesn't exist yet create it and append to the vec
-                                self.gate_lut.insert(input_str.to_string(), self.gates.len());
-                                self.gates.push(None);
-                                left_input = GateIO::Wire(self.gates.len()-1);
-                            }
-                        }
-                    }
+                left_input = match input_str.parse::<u32>(){
+                    Ok(val) => GateIO::Const(val),
+                    Err(_) => GateIO::Wire(self.get_or_create_index(&input_str))
                 }
             } else{
-                return Err(format!("could not parse circuit's left input"))
+                return Err("could not parse circuit's left input".to_string())
             }
             
-            let right_input: Option<GateIO>;
+            let right_input=
             if let Some(x) = captures.get(3){
                 let input_str = x.as_str();
                 match input_str.parse::<u32>(){
-                    Ok(val) => right_input = Some(GateIO::Const(val)),
-                    Err(_) => {
-                        // if it's a wire we need to see if it exists in the hash and assign that key
-                        match self.gate_lut.get(input_str){
-                            Some(x) => right_input = Some(GateIO::Wire(*x)),
-                            None => {
-                                // if a field for the gate doesn't exist yet create it and append to the vec
-                                self.gate_lut.insert(input_str.to_string(), self.gates.len());
-                                self.gates.push(None);
-                                right_input = Some(GateIO::Wire(self.gates.len()-1));
-                            }
-                        }
-                    }
+                    Ok(val) => Some(GateIO::Const(val)),
+                    Err(_) => Some(GateIO::Wire(self.get_or_create_index(&input_str)))
                 }
             } else{
-                right_input = None
-            }
+                None
+            };
 
-            // get the output
-            // TODO: Implement the Output String bit, look at above for how
-            let output_str = &captures.get(4).ok_or_else(|| format!("Could not Extract Gate Output from {}",gate_descriptor))?.as_str();
-            let output: GateIO;
-            match output_str.parse::<u32>(){
-                Ok(val) => right_input = Some(GateIO::Const(val)),
-                    Err(_) => {
-                        // if it's a wire we need to see if it exists in the hash and assign that key
-                        match self.gate_lut.get(output_str){
-                            Some(x) => output = Some(GateIO::Wire(*x)),
-                            None => {
-                                // if a field for the gate doesn't exist yet create it and append to the vec
-                                self.gate_lut.insert(input_str.to_string(), self.gates.len());
-                                self.gates.push(None);
-                                right_input = Some(GateIO::Wire(self.gates.len()-1));
-                            }
-                        }
-                    }
+            // get the output and store it in the LUT
+            // TODO:
+            let gate_idx = self.get_or_create_index(
+                captures.get(4)
+                .ok_or_else(|| format!("Could not Extract Gate Output from {}",gate_descriptor))?.as_str()
+            );
+            
+            //insert it into the vec gate, but raise an error if something is already there
+            match self.gates[gate_idx]{
+                None => {
+                    self.gates[gate_idx] = Some(LogicGate::new(left_input, right_input, operation));
+                    Ok(())},
+                Some(_) => Err(format!("gate Index {} is not empty",gate_idx))
             }
-            Ok(())
         } else{
             Err(format!("Could Not Process Gate Structure from String {}", gate_descriptor))
         }
@@ -238,6 +222,13 @@ mod tests{
     fn test_logic_gate_creation() {
         let mut board = CircuitBoard::new();
         board.insert("bn RSHIFT 2 -> bo").unwrap();
+        assert_eq!(board.gates.len(),2);
+        let index = board.get_or_create_index("bo");
+        assert_eq!(board.gates[index].unwrap(), LogicGate::new(
+            GateIO::Wire(0),
+            Some(GateIO::Const(2)),
+            Operation::RShift
+        ))
 
     }
 
