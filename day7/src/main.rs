@@ -1,9 +1,9 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{collections::HashMap, error::Error, fs, process, str::FromStr};
+use std::{collections::HashMap, fs, process};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum GateIO {
+enum GateIo {
     Const(u32),  // the input is a constant value
     Wire(usize), //the input references a different gate by name
 }
@@ -19,16 +19,16 @@ enum Operation {
 }
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 struct LogicGate {
-    input_left: Option<GateIO>,
-    input_right: Option<GateIO>,
+    input_left: Option<GateIo>,
+    input_right: Option<GateIo>,
     operation: Operation,
     value: Option<u32>,
 }
 
 impl LogicGate {
     pub fn new(
-        input_left: Option<GateIO>,
-        input_right: Option<GateIO>,
+        input_left: Option<GateIo>,
+        input_right: Option<GateIo>,
         operation: Operation,
     ) -> Self {
         Self {
@@ -95,8 +95,8 @@ impl CircuitBoard {
             let left_input = if let Some(x) = captures.get(1) {
                 let input_str = x.as_str();
                 match input_str.parse::<u32>() {
-                    Ok(val) => Some(GateIO::Const(val)),
-                    Err(_) => Some(GateIO::Wire(self.get_or_create_index(&input_str))),
+                    Ok(val) => Some(GateIo::Const(val)),
+                    Err(_) => Some(GateIo::Wire(self.get_or_create_index(&input_str))),
                 }
             } else {
                 None
@@ -105,8 +105,8 @@ impl CircuitBoard {
             let right_input = if let Some(x) = captures.get(3) {
                 let input_str = x.as_str();
                 match input_str.parse::<u32>() {
-                    Ok(val) => Some(GateIO::Const(val)),
-                    Err(_) => Some(GateIO::Wire(self.get_or_create_index(&input_str))),
+                    Ok(val) => Some(GateIo::Const(val)),
+                    Err(_) => Some(GateIo::Wire(self.get_or_create_index(&input_str))),
                 }
             } else {
                 None
@@ -146,14 +146,14 @@ impl CircuitBoard {
         } else {
             // if it's none we have to process it
             let l_input_value = match gate.input_left {
-                Some(GateIO::Const(x)) => Some(x),
-                Some(GateIO::Wire(x)) => Some(self.measure_node(x)?), // ooh look recursion rears its ugly head!
+                Some(GateIo::Const(x)) => Some(x),
+                Some(GateIo::Wire(x)) => Some(self.measure_node(x)?), // ooh look recursion rears its ugly head!
                 None => None,
             };
 
             let r_input_value = match gate.input_right {
-                Some(GateIO::Const(x)) => Some(x),
-                Some(GateIO::Wire(x)) => Some(self.measure_node(x)?),
+                Some(GateIo::Const(x)) => Some(x),
+                Some(GateIo::Wire(x)) => Some(self.measure_node(x)?),
                 None => None,
             };
 
@@ -224,7 +224,7 @@ fn main() {
     board.reset();
     let idx = board.get_or_create_index("b");
     board.gates[idx] = Some(LogicGate::new(
-        Some(GateIO::Const(part_one_soln)),
+        Some(GateIo::Const(part_one_soln)),
         None,
         Operation::Nop,
     ));
@@ -246,8 +246,8 @@ mod tests {
         assert_eq!(
             board.gates[index].unwrap(),
             LogicGate::new(
-                Some(GateIO::Wire(0)),
-                Some(GateIO::Const(2)),
+                Some(GateIo::Wire(0)),
+                Some(GateIo::Const(2)),
                 Operation::RShift
             )
         );
@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(board.gates.len(), 2);
         assert_eq!(
             board.gates[index].unwrap(),
-            LogicGate::new(Some(GateIO::Const(2)), None, Operation::Nop,)
+            LogicGate::new(Some(GateIo::Const(2)), None, Operation::Nop,)
         );
     }
 
